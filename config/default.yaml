@@ -1,0 +1,67 @@
+# PRD-to-JSON Generator - Default Configuration
+# Copy this file to customize settings
+
+generation:
+  # LLM settings
+  llm:
+    provider: bedrock  # bedrock, openai, anthropic, mock
+    model: anthropic.claude-sonnet-4-20250514-v1:0
+    temperature: 0.3
+    max_tokens: 64000
+    timeout: 300  # seconds
+    aws_region: us-east-1
+    max_retries: 2
+    retry_delay: 1.0
+
+  # Strategy settings
+  strategy:
+    auto_select: true
+    default_strategy: auto  # auto, simple, chunked, hybrid
+    # Complexity thresholds for auto-selection
+    simple_max_features: 3
+    simple_max_estimated_nodes: 10
+    medium_max_features: 10
+    medium_max_estimated_nodes: 50
+    chunk_size: 5  # Features per chunk
+
+  # Output formatting
+  output:
+    pretty_print: true
+    indent: 2
+    sort_keys: false
+    ensure_ascii: false
+
+  # INSAIT defaults
+  default_channel: voice
+  default_language: en-US
+  default_llm_provider: openai
+  default_llm_model: gpt-4o
+
+validation:
+  # Auto-fix settings
+  auto_fix:
+    enabled: true
+    max_iterations: 3
+    fix_missing_fields: true
+    fix_invalid_refs: true
+    fix_orphaned_nodes: true
+    fix_extract_fields: true
+    fix_variable_sources: true
+    orphan_handling: connect  # remove, connect
+
+  # Validation strictness
+  strict_mode: false
+  warn_on_missing_descriptions: true
+  require_all_paths_to_end: true
+  validate_node_positions: false
+
+templates:
+  enabled: true
+  min_match_score: 0.7  # 0.0 to 1.0
+  prefer_templates: true
+  custom_templates_dir: null  # Path to custom templates
+
+logging:
+  level: INFO  # DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+  file: null  # Path to log file (null for console only)
