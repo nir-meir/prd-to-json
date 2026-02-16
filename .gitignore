@@ -17,7 +17,8 @@ env/
 .DS_Store
 
 # Generated output files
-*.json
+output*.json
+agent*.json
 !examples/*.json
 
 # Environment variables
