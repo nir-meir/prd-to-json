@@ -80,6 +80,16 @@ class MetadataExtractor(BaseExtractor):
         """Extract agent/bot name from content."""
         # Try common patterns
 
+        # Pattern 0: Bold text at very start of document (common format)
+        # e.g., "**PassportCard – Insait AI Agent Phase 2**"
+        bold_start_match = re.search(r'^\*\*(.+?)\*\*', content.strip(), re.MULTILINE)
+        if bold_start_match:
+            name = bold_start_match.group(1).strip()
+            # Clean up common suffixes
+            name = re.sub(r'\s*(PRD|Document|Specification|Spec|Requirements?)\s*$', '', name, flags=re.IGNORECASE)
+            if name and len(name) < 100:
+                return name
+
         # Pattern 1: Title at start of document
         # e.g., "# Agent Name" or "## Bot Name PRD"
         title_match = re.search(r'^#\s*(.+?)(?:\s+PRD|\s+Bot|\s*$)', content, re.MULTILINE | re.IGNORECASE)

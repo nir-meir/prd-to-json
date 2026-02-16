@@ -80,9 +80,12 @@ class FeatureExtractor(BaseExtractor):
         features = []
 
         # Pattern 1: Feature sections with F-XX IDs
-        # e.g., "## Feature F-01: Customer Authentication"
+        # Handles multiple formats:
+        # - "## Feature F-01: Customer Authentication"
+        # - "## **F-01. Authentication (WhatsApp Text)**"
+        # - "## F-01 - Authentication"
         feature_pattern = re.compile(
-            r'(?:^|\n)#+\s*(?:Feature\s+)?(F-?\d+)[:\s-]+(.+?)(?:\n|$)',
+            r'(?:^|\n)#+\s*\*{0,2}\s*(?:Feature\s+)?(F-?\d+)[\.\:\s\-]+\s*(.+?)(?:\*{0,2})?(?:\n|$)',
             re.IGNORECASE | re.MULTILINE
         )
 
