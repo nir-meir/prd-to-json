@@ -398,3 +398,272 @@ class TestEdgeCases:
 
         assert not result.valid
         assert len(result.errors) > 0
+
+
+class TestRealWorldScenarios:
+    """Test realistic PRD scenarios."""
+
+    @pytest.fixture
+    def mock_llm(self):
+        return MockLLMClient(default_response="{}")
+
+    def test_customer_service_bot(self, mock_llm):
+        """Test a realistic customer service bot PRD."""
+        prd_content = """
+# Customer Service Bot PRD
+
+## Overview
+An automated customer service bot for handling common inquiries.
+
+Language: Hebrew
+Channel: Voice
+
+## Feature F-01: Greeting and Identification
+
+### Description
+Greet the customer and identify them by phone number.
+
+### Flow (Audio)
+1. Greet customer with welcome message
+2. Ask for phone number
+3. Validate phone format
+4. Look up customer in CRM
+
+### Variables Used
+- phone_number
+- customer_id
+- customer_name
+
+### APIs Used
+- lookup_customer
+
+## Feature F-02: Balance Inquiry
+
+### Description
+Allow customers to check their account balance.
+
+### Flow (Audio)
+1. Confirm customer wants balance info
+2. Call balance API
+3. Read balance to customer
+
+### Variables Used
+- account_balance
+
+### APIs Used
+- get_balance
+
+## Variables
+
+| Name | Type | Description |
+|------|------|-------------|
+| phone_number | string | Customer phone number |
+| customer_id | string | Customer ID from CRM |
+| customer_name | string | Customer full name |
+| account_balance | number | Current account balance |
+
+## APIs
+
+### lookup_customer
+Method: POST
+Endpoint: /api/crm/lookup
+
+### get_balance
+Method: GET
+Endpoint: /api/accounts/balance/{id}
+"""
+        parser = PRDParser(llm_client=mock_llm)
+        parsed = parser.parse(prd_content)
+
+        # Verify parsing
+        assert parsed.metadata.name is not None
+        assert parsed.metadata.language == "he-IL"
+        assert len(parsed.features) >= 2
+        assert len(parsed.variables) >= 1
+        assert len(parsed.apis) >= 1
+
+        # Generate
+        generator = create_generator(parsed, llm_client=mock_llm)
+        result = generator.generate(parsed)
+
+        assert result.success is True
+
+        # Validate
+        validator = INSAITValidator()
+        validation = validator.validate(result.json_output)
+
+        # After auto-fix, should be valid
+        if not validation.valid and validation.auto_fixable_count > 0:
+            fixer = AutoFixer()
+            fix_result = fixer.fix(result.json_output, validation)
+            validation = validator.validate(fix_result.fixed_data)
+
+        # Should have no errors (warnings are OK)
+        assert len(validation.errors) == 0
+
+    def test_multi_channel_bot(self, mock_llm):
+        """Test a bot that supports both voice and text channels."""
+        prd_content = """
+# Multi-Channel Support Bot
+
+## Overview
+A support bot that works on both voice and text channels.
+
+Language: English
+Channel: Both
+
+## Feature F-01: Support Request
+
+### Flow (Text)
+1. Ask what help is needed
+2. Categorize the request
+3. Route to appropriate handler
+
+### Flow (Audio)
+1. Greet caller
+2. Ask how we can help
+3. Listen and categorize
+4. Route or transfer
+
+### Variables Used
+- request_type
+- request_description
+"""
+        parser = PRDParser(llm_client=mock_llm)
+        parsed = parser.parse(prd_content)
+
+        # Should detect both channels
+        from src.parser.models import Channel
+        assert parsed.metadata.channel == Channel.BOTH
+
+        generator = create_generator(parsed, llm_client=mock_llm)
+        result = generator.generate(parsed)
+
+        assert result.success is True
+        assert "flow" in result.json_output
+        assert "nodes" in result.json_output["flow"]
+
+
+class TestOutputStructure:
+    """Verify output JSON structure matches INSAIT format."""
+
+    @pytest.fixture
+    def mock_llm(self):
+        return MockLLMClient(default_response="{}")
+
+    def test_output_has_required_fields(self, mock_llm):
+        """Verify output contains all required INSAIT fields."""
+        prd_content = """
+# Test Bot
+
+## Overview
+A test bot.
+
+## Feature F-01: Test
+Test feature.
+"""
+        parser = PRDParser(llm_client=mock_llm)
+        parsed = parser.parse(prd_content)
+
+        generator = create_generator(parsed, llm_client=mock_llm)
+        result = generator.generate(parsed)
+
+        output = result.json_output
+
+        # Required top-level fields
+        assert "name" in output
+        assert "flow" in output
+
+        # Required flow fields
+        assert "start_node_id" in output["flow"]
+        assert "nodes" in output["flow"]
+        assert "exits" in output["flow"]
+
+        # Optional but expected
+        assert "variables" in output or output.get("variables") is None
+        assert "tools" in output or output.get("tools") is None
+
+    def test_nodes_have_required_fields(self, mock_llm):
+        """Verify each node has required INSAIT fields."""
+        prd_content = """
+# Test Bot
+
+## Overview
+A test bot.
+
+## Feature F-01: Test
+Test feature.
+"""
+        parser = PRDParser(llm_client=mock_llm)
+        parsed = parser.parse(prd_content)
+
+        generator = create_generator(parsed, llm_client=mock_llm)
+        result = generator.generate(parsed)
+
+        nodes = result.json_output["flow"]["nodes"]
+
+        for node_id, node in nodes.items():
+            # Each node must have these fields
+            assert "id" in node, f"Node {node_id} missing 'id'"
+            assert "type" in node, f"Node {node_id} missing 'type'"
+            assert "name" in node, f"Node {node_id} missing 'name'"
+            assert "position" in node, f"Node {node_id} missing 'position'"
+            assert "data" in node, f"Node {node_id} missing 'data'"
+
+            # Position must have x and y
+            assert "x" in node["position"]
+            assert "y" in node["position"]
+
+    def test_exits_connect_existing_nodes(self, mock_llm):
+        """Verify exits reference valid nodes."""
+        prd_content = """
+# Test Bot
+
+## Overview
+A test bot.
+
+## Feature F-01: Test
+Test feature.
+"""
+        parser = PRDParser(llm_client=mock_llm)
+        parsed = parser.parse(prd_content)
+
+        generator = create_generator(parsed, llm_client=mock_llm)
+        result = generator.generate(parsed)
+
+        nodes = result.json_output["flow"]["nodes"]
+        exits = result.json_output["flow"]["exits"]
+        node_ids = set(nodes.keys())
+
+        for exit_data in exits:
+            source = exit_data.get("source_node_id") or exit_data.get("source")
+            target = exit_data.get("target_node_id") or exit_data.get("target")
+
+            assert source in node_ids, f"Exit references non-existent source: {source}"
+            assert target in node_ids, f"Exit references non-existent target: {target}"
+
+    def test_start_node_id_references_existing_node(self, mock_llm):
+        """Verify start_node_id points to a real node."""
+        prd_content = """
+# Test Bot
+
+## Overview
+A test bot.
+
+## Feature F-01: Test
+Test feature.
+"""
+        parser = PRDParser(llm_client=mock_llm)
+        parsed = parser.parse(prd_content)
+
+        generator = create_generator(parsed, llm_client=mock_llm)
+        result = generator.generate(parsed)
+
+        start_node_id = result.json_output["flow"]["start_node_id"]
+        nodes = result.json_output["flow"]["nodes"]
+
+        assert start_node_id in nodes, f"start_node_id '{start_node_id}' not in nodes"
+
+        # The referenced node should be of type 'start'
+        start_node = nodes[start_node_id]
+        assert start_node["type"] == "start"

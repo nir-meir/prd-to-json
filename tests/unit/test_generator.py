@@ -196,7 +196,8 @@ class TestStrategySelection:
         assert strategy == GenerationStrategy.SIMPLE
 
     def test_chunked_strategy_for_medium_prd(self):
-        # Create PRD with many nodes
+        # Create PRD with 6 features, each with 3 flow steps = 6 + (6*3*2) = ~42 estimated nodes
+        # This puts it in MEDIUM complexity range
         features = [
             Feature(
                 id=f"F-{i:02d}",
@@ -210,8 +211,11 @@ class TestStrategySelection:
         config = AppConfig()
         strategy = select_strategy(prd, config)
 
-        # Should select chunked or hybrid for medium complexity
-        assert strategy in (GenerationStrategy.CHUNKED, GenerationStrategy.HYBRID, GenerationStrategy.SIMPLE)
+        # For MEDIUM complexity (6 features, ~42 nodes), should use SIMPLE or CHUNKED
+        # depending on config.simple_max_estimated_nodes
+        assert strategy in (GenerationStrategy.SIMPLE, GenerationStrategy.CHUNKED)
+        # Verify it's not returning HYBRID for this medium complexity
+        assert prd.complexity == Complexity.MEDIUM
 
     def test_hybrid_strategy_for_complex_prd(self):
         # Create complex PRD
@@ -336,7 +340,27 @@ class TestCreateGenerator:
         )
         generator = create_generator(prd)
 
-        assert isinstance(generator, (SimpleGenerator, HybridGenerator))
+        # Simple PRD should get SimpleGenerator
+        assert isinstance(generator, SimpleGenerator)
+        assert prd.complexity == Complexity.SIMPLE
+
+    def test_creates_hybrid_generator_for_complex_prd(self):
+        # Create complex PRD that should trigger HybridGenerator
+        features = [
+            Feature(
+                id=f"F-{i:02d}",
+                name=f"Feature {i}",
+                description="D",
+                flow_steps=[FlowStep(order=j, type=FlowStepType.CONVERSATION, description="S") for j in range(3)],
+            )
+            for i in range(15)
+        ]
+        prd = ParsedPRD(raw_content="Test", features=features)
+        generator = create_generator(prd)
+
+        # Complex PRD should get HybridGenerator
+        assert isinstance(generator, HybridGenerator)
+        assert prd.complexity in (Complexity.COMPLEX, Complexity.ENTERPRISE)
 
     def test_creates_generator_with_config(self):
         prd = ParsedPRD(raw_content="Test")
