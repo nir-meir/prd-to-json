@@ -21,6 +21,15 @@ from .models import (
     AgentMetadata,
     ParsedPRD,
 )
+from .prd_parser import PRDParser, QuickParser, ParseResult
+from .extractors import (
+    BaseExtractor,
+    MetadataExtractor,
+    FeatureExtractor,
+    VariableExtractor,
+    APIExtractor,
+    RuleExtractor,
+)
 
 __all__ = [
     # Models
@@ -41,4 +50,15 @@ __all__ = [
     'Feature',
     'AgentMetadata',
     'ParsedPRD',
+    # Parsers
+    'PRDParser',
+    'QuickParser',
+    'ParseResult',
+    # Extractors
+    'BaseExtractor',
+    'MetadataExtractor',
+    'FeatureExtractor',
+    'VariableExtractor',
+    'APIExtractor',
+    'RuleExtractor',
 ]
