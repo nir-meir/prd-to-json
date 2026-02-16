@@ -413,6 +413,7 @@ class NodeFactory:
 
         # Format tool for context registration
         tool_json_for_context = {
+            "id": tool_id,
             "original_id": tool_id,
             "name": name,
             "function_definition": {

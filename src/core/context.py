@@ -413,7 +413,7 @@ class GenerationContext:
         Returns:
             ToolReference for the registered tool
         """
-        tool_id = tool_json["original_id"]
+        tool_id = tool_json.get("id") or tool_json.get("original_id")
         function_name = tool_json["function_definition"]["name"]
         name = tool_json["name"]
 
